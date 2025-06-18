@@ -1,4 +1,3 @@
-\projects\rag_ai\requirements.txt
 langchain
 langchain-community
 langchain-core
@@ -9,3 +8,4 @@ cassio
 wikipedia
 huggingface-hub
 python-dotenv
+typing-extensions
