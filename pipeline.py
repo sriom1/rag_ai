@@ -37,26 +37,49 @@ def load_documents():
             "https://lilianweng.github.io/posts/2023-03-15-prompt-engineering/",
             "https://lilianweng.github.io/posts/2023-10-25-adv-attack-llm/"
         ]
+        
+        # Default content in case of connection issues
+        default_content = {
+            "agents": "AI agents are autonomous systems that can perceive and act in their environment.",
+            "prompt_engineering": "Prompt engineering is the practice of designing effective prompts for language models.",
+            "adversarial": "Adversarial attacks are techniques to manipulate AI model inputs to produce incorrect outputs."
+        }
+        
         docs = []
+        connection_failed = True
+        
         for url in urls:
             try:
                 loader = WebBaseLoader(url)
                 loader.requests_kwargs = {
-                    'timeout': 10,
+                    'timeout': 5,  # Reduced timeout
                     'verify': False,
                     'headers': {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                    }
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    },
+                    'allow_redirects': True
                 }
-                docs.extend(loader.load())
+                current_docs = loader.load()
+                if current_docs:
+                    docs.extend(current_docs)
+                    connection_failed = False
             except Exception as e:
                 st.warning(f"Failed to load {url}: {str(e)}")
                 continue
+        
+        # If all connections failed, use default content
+        if connection_failed:
+            st.warning("Using cached content due to connection issues")
+            from langchain_core.documents import Document
+            for topic, content in default_content.items():
+                docs.append(Document(page_content=content, metadata={"source": f"default_{topic}"}))
+        
         return docs
     except Exception as e:
         st.error(f"Error loading documents: {str(e)}")
         return []
 
+# Update the existing document loading code
 doc_list = load_documents()
 
 # Split documents into manageable chunks
