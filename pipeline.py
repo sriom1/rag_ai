@@ -31,53 +31,56 @@ hf_api_key = st.secrets["HF_API_KEY"]
 
 # Load documents from web
 def load_documents():
-    try:
-        urls = [
-            "https://lilianweng.github.io/posts/2023-06-23-agent/",
-            "https://lilianweng.github.io/posts/2023-03-15-prompt-engineering/",
-            "https://lilianweng.github.io/posts/2023-10-25-adv-attack-llm/"
-        ]
-        
-        # Default content in case of connection issues
-        default_content = {
-            "agents": "AI agents are autonomous systems that can perceive and act in their environment.",
-            "prompt_engineering": "Prompt engineering is the practice of designing effective prompts for language models.",
-            "adversarial": "Adversarial attacks are techniques to manipulate AI model inputs to produce incorrect outputs."
+    # Predefined content to use when web scraping fails
+    default_content = [
+        {
+            "content": """
+            AI agents are autonomous systems that can perceive and act in their environment.
+            Agents can be categorized into:
+            1. Goal-driven agents that pursue specific objectives
+            2. Reactive agents that respond to environmental stimuli
+            3. Learning agents that improve through experience
+            """,
+            "source": "default_agents",
+            "title": "AI Agents Overview"
+        },
+        {
+            "content": """
+            Prompt engineering is the practice of designing effective prompts for language models.
+            Key principles include:
+            1. Clear and specific instructions
+            2. Context and examples when needed
+            3. Breaking complex tasks into steps
+            4. Proper formatting and structure
+            """,
+            "source": "default_prompt_engineering",
+            "title": "Prompt Engineering Guide"
+        },
+        {
+            "content": """
+            Adversarial attacks on language models include:
+            1. Input manipulation to produce incorrect outputs
+            2. Prompt injection attacks
+            3. Model extraction attempts
+            4. Jailbreak techniques
+            Common defenses involve input validation and robust model training.
+            """,
+            "source": "default_adversarial",
+            "title": "LLM Security"
         }
-        
-        docs = []
-        connection_failed = True
-        
-        for url in urls:
-            try:
-                loader = WebBaseLoader(url)
-                loader.requests_kwargs = {
-                    'timeout': 5,  # Reduced timeout
-                    'verify': False,
-                    'headers': {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                    },
-                    'allow_redirects': True
-                }
-                current_docs = loader.load()
-                if current_docs:
-                    docs.extend(current_docs)
-                    connection_failed = False
-            except Exception as e:
-                st.warning(f"Failed to load {url}: {str(e)}")
-                continue
-        
-        # If all connections failed, use default content
-        if connection_failed:
-            st.warning("Using cached content due to connection issues")
-            from langchain_core.documents import Document
-            for topic, content in default_content.items():
-                docs.append(Document(page_content=content, metadata={"source": f"default_{topic}"}))
-        
-        return docs
-    except Exception as e:
-        st.error(f"Error loading documents: {str(e)}")
-        return []
+    ]
+
+    # Create documents from default content
+    from langchain_core.documents import Document
+    docs = [
+        Document(
+            page_content=item["content"],
+            metadata={"source": item["source"], "title": item["title"]}
+        )
+        for item in default_content
+    ]
+    
+    return docs
 
 # Update the existing document loading code
 doc_list = load_documents()
@@ -88,14 +91,33 @@ docs_split = text_splitter.split_documents(doc_list) if doc_list else []
 
 # Vector store setup
 try:
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    astra_vector_store = Cassandra(embedding=embeddings, session=None, keyspace=None, table_name="qa_mini_demo")
-    if docs_split:
-        astra_vector_store.add_documents(docs_split)
+    # Initialize embeddings with error handling
+    embeddings = HuggingFaceEmbeddings(
+        model_name="all-MiniLM-L6-v2",
+        encode_kwargs={'normalize_embeddings': True}
+    )
+    
+    # Initialize vector store with default documents
+    docs = load_documents()
+    
+    astra_vector_store = Cassandra(
+        embedding=embeddings,
+        session=None,
+        keyspace=None,
+        table_name="qa_mini_demo"
+    )
+    
+    # Add documents to vector store
+    astra_vector_store.add_documents(docs)
+    
+    # Create index wrapper and retriever
     astra_vector_index = VectorStoreIndexWrapper(vectorstore=astra_vector_store)
-    retriever = astra_vector_store.as_retriever()
+    retriever = astra_vector_store.as_retriever(
+        search_kwargs={"k": 3}
+    )
+    
 except Exception as e:
-    st.error(f"Error setting up vector store: {str(e)}")
+    st.error(f"Error setting up knowledge base: {str(e)}")
     st.stop()
 
 # LLM Routing
