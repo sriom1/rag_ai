@@ -10,6 +10,6 @@ huggingface-hub
 python-dotenv
 typing-extensions
 sentence-transformers
-# Add these required dependencies for Cassandra
-cassandra-driver
+cassandra-driver[libev]
 gevent
+eventlet

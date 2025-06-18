@@ -1,6 +1,11 @@
 # pipeline.py
 
 import os
+os.environ['CQLENG_ALLOW_SCHEMA_MANAGEMENT'] = '1'
+
+import eventlet
+eventlet.monkey_patch()
+
 from typing import List
 from typing_extensions import TypedDict
 from langchain.schema import document
