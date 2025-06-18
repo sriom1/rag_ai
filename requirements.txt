@@ -1,0 +1,11 @@
+\projects\rag_ai\requirements.txt
+langchain
+langchain-community
+langchain-core
+langchain-groq
+langgraph
+streamlit
+cassio
+wikipedia
+huggingface-hub
+python-dotenv
