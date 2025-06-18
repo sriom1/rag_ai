@@ -30,24 +30,50 @@ groq_api_key = st.secrets["GROQ_API_KEY"]
 hf_api_key = st.secrets["HF_API_KEY"]
 
 # Load documents from web
-docs = [
-    WebBaseLoader(url).load()
-    for url in [
-        "https://lilianweng.github.io/posts/2023-06-23-agent/",
-        "https://lilianweng.github.io/posts/2023-03-15-prompt-engineering/",
-        "https://lilianweng.github.io/posts/2023-10-25-adv-attack-llm/"
-    ]
-]
-doc_list = [item for sublist in docs for item in sublist]
+def load_documents():
+    try:
+        urls = [
+            "https://lilianweng.github.io/posts/2023-06-23-agent/",
+            "https://lilianweng.github.io/posts/2023-03-15-prompt-engineering/",
+            "https://lilianweng.github.io/posts/2023-10-25-adv-attack-llm/"
+        ]
+        docs = []
+        for url in urls:
+            try:
+                loader = WebBaseLoader(url)
+                loader.requests_kwargs = {
+                    'timeout': 10,
+                    'verify': False,
+                    'headers': {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    }
+                }
+                docs.extend(loader.load())
+            except Exception as e:
+                st.warning(f"Failed to load {url}: {str(e)}")
+                continue
+        return docs
+    except Exception as e:
+        st.error(f"Error loading documents: {str(e)}")
+        return []
+
+doc_list = load_documents()
+
+# Split documents into manageable chunks
 text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(chunk_size=500, chunk_overlap=0)
-docs_split = text_splitter.split_documents(doc_list)
+docs_split = text_splitter.split_documents(doc_list) if doc_list else []
 
 # Vector store setup
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-astra_vector_store = Cassandra(embedding=embeddings, session=None, keyspace=None, table_name="qa_mini_demo")
-astra_vector_store.add_documents(docs_split)
-astra_vector_index = VectorStoreIndexWrapper(vectorstore=astra_vector_store)
-retreiver = astra_vector_store.as_retriever()
+try:
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    astra_vector_store = Cassandra(embedding=embeddings, session=None, keyspace=None, table_name="qa_mini_demo")
+    if docs_split:
+        astra_vector_store.add_documents(docs_split)
+    astra_vector_index = VectorStoreIndexWrapper(vectorstore=astra_vector_store)
+    retriever = astra_vector_store.as_retriever()
+except Exception as e:
+    st.error(f"Error setting up vector store: {str(e)}")
+    st.stop()
 
 # LLM Routing
 class RouteQuery(BaseModel):
@@ -74,7 +100,7 @@ class GraphState(TypedDict):
 
 def retrieve(state):
     question = state["question"]
-    document = retreiver.invoke(question)
+    document = retriever.invoke(question)
     return {"document": document, "question": question}
 
 def wiki_search(state):
