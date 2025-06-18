@@ -1,0 +1,6 @@
+[server]
+runOnSave = true
+
+[runner]
+# Use Python 3.11 which still has asyncore support
+pythonVersion = "3.11"
