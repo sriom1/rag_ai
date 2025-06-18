@@ -9,3 +9,4 @@ wikipedia
 huggingface-hub
 python-dotenv
 typing-extensions
+sentence-transformers

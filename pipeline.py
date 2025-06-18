@@ -6,8 +6,8 @@ from typing_extensions import TypedDict
 from langchain.schema import document
 from langchain_community.utilities import WikipediaAPIWrapper
 from langchain_community.tools import WikipediaQueryRun
-from langchain.vectorstores.cassandra import Cassandra
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Cassandra  # Changed from langchain.vectorstores.cassandra
+from langchain_community.embeddings import HuggingFaceEmbeddings  # Changed from langchain_huggingface
 from langchain_community.document_loaders import WebBaseLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.indexes.vectorstore import VectorStoreIndexWrapper
