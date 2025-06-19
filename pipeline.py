@@ -2,9 +2,10 @@
 
 import os
 os.environ['CQLENG_ALLOW_SCHEMA_MANAGEMENT'] = '1'
+os.environ['EVENTLET_MONKEY_PATCH'] = '0'  # Disable automatic monkey patching
 
 import eventlet
-eventlet.monkey_patch()
+eventlet.monkey_patch(thread=False)  # Don't monkey patch threading
 
 from typing import List
 from typing_extensions import TypedDict
@@ -86,7 +87,13 @@ def load_documents():
 doc_list = load_documents()
 
 # Split documents into manageable chunks
-text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(chunk_size=500, chunk_overlap=0)
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=500,
+    chunk_overlap=0,
+    length_function=len,
+    separators=["\n\n", "\n", " ", ""]
+)
+
 docs_split = text_splitter.split_documents(doc_list) if doc_list else []
 
 # Vector store setup
